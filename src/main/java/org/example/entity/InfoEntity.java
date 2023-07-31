@@ -7,6 +7,15 @@ public class InfoEntity {
     private String email;
     private List<Repository> repositoryList;
 
+    public InfoEntity(String login, String email, List<Repository> repositoryList) {
+        this.login = login;
+        this.email = email;
+        this.repositoryList = repositoryList;
+    }
+
+    public InfoEntity() {
+    }
+
     public String getLogin() {
         return login;
     }

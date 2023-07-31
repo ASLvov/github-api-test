@@ -1,6 +1,5 @@
 package org.example;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.example.dto.ContributorsDTO;
 import org.example.dto.RepoDTO;
@@ -17,7 +16,7 @@ import java.util.concurrent.CompletableFuture;
 
 public class Main {
     private static final String BASE_API_URL = "https://api.github.com/users/";
-    private static final int REPOS_COUNT = 10;
+    private static final int REPOS_COUNT = 5;
     private static final HttpClient httpClient = HttpClient.newHttpClient();
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -32,45 +31,41 @@ public class Main {
         }
     }
 
-    private static InfoEntity getInfoByLogin(String login) throws Exception {
-        InfoEntity infoEntity = new InfoEntity();
-        CompletableFuture<HttpResponse<String>> userCompletableFuture = sendGetRequestAsync(BASE_API_URL.concat(login));
-        UserDTO userDTO = userCompletableFuture.thenApplyAsync(HttpResponse::body)
-                .thenApplyAsync(body -> (UserDTO) mapResponseBodyToDTO(body, new TypeReference<UserDTO>() {
-                }))
-                .get();
-        infoEntity.setLogin(userDTO.getLogin());
-        infoEntity.setEmail(userDTO.getEmail());
-
-        CompletableFuture<HttpResponse<String>> reposCompletableFuture = sendGetRequestAsync(userDTO.getReposUrl());
-        List<RepoDTO> repoDTOList = reposCompletableFuture.thenApplyAsync(HttpResponse::body)
-                .thenApplyAsync(body -> (List<RepoDTO>) mapResponseBodyToDTO(body, new TypeReference<List<RepoDTO>>() {
-                }))
-                .get();
-
-        List<Repository> repositoryList = repoDTOList.stream()
-                .parallel()
-                .unordered()
-                .limit(REPOS_COUNT)
-                .map(Main::sendRequestAndProcess)
-                .toList();
-
-        infoEntity.setRepositoryList(repositoryList);
-
-        return infoEntity;
+    private static InfoEntity getInfoByLogin(String login) throws InterruptedException {
+        CompletableFuture<UserDTO> userDTOCompletableFuture =
+                sendGetRequestAsync(BASE_API_URL.concat(login))
+                        .thenApply(HttpResponse::body)
+                        .thenApply(body -> (UserDTO) mapResponseBodyToDTO(body, UserDTO.class));
+        return userDTOCompletableFuture
+                .thenApplyAsync(userDTO -> sendGetRequestAsync(userDTO.getReposUrl())
+                        .thenApply(HttpResponse::body)
+                        .thenApply(body -> mapResponseBodyToListDTO(body, RepoDTO.class)))
+                .thenApply(listCompletableFuture ->
+                        listCompletableFuture
+                                .join()
+                                .stream()
+                                .map(o -> (RepoDTO) o)
+                                .parallel()
+                                .unordered()
+                                .limit(REPOS_COUNT)
+                                .map(Main::sendRequestAndProcess)
+                                .toList())
+                .thenCombine(userDTOCompletableFuture, (repos, user) ->
+                        new InfoEntity(user.getLogin(), user.getEmail(), repos))
+                .join();
     }
 
     private static Repository sendRequestAndProcess(RepoDTO repoDTO) {
-        CompletableFuture<HttpResponse<String>> completableFuture = sendGetRequestAsync(repoDTO.getContributorsUrl());
         try {
-            List<String> contributors = completableFuture.thenApplyAsync(HttpResponse::body)
-                    .thenApplyAsync(body -> (List<ContributorsDTO>) mapResponseBodyToDTO(body,
-                            new TypeReference<List<ContributorsDTO>>() {
-                            }))
-                    .get()
-                    .stream()
-                    .map(ContributorsDTO::getLogin)
-                    .toList();
+            List<String> contributors =
+                    sendGetRequestAsync(repoDTO.getContributorsUrl())
+                            .thenApply(HttpResponse::body)
+                            .thenApply(body -> mapResponseBodyToListDTO(body, ContributorsDTO.class))
+                            .join()
+                            .stream()
+                            .map(o -> (ContributorsDTO) o)
+                            .map(ContributorsDTO::getLogin)
+                            .toList();
             Repository repository = new Repository();
             repository.setName(repoDTO.getName());
             repository.setUrl(repoDTO.getUrl());
@@ -81,10 +76,22 @@ public class Main {
         }
     }
 
-    private static Object mapResponseBodyToDTO(String body, TypeReference<?> classInstance) {
+    private static <T> Object mapResponseBodyToDTO(String body, Class<T> elementType) {
         try {
-            System.out.println(Thread.currentThread().getName() + " map response");
-            return objectMapper.readValue(body, classInstance);
+            System.out.println(Thread.currentThread().getName() + " map response to DTO");
+            return objectMapper.readValue(body, elementType);
+        } catch (Exception e) {
+            String exceptionMessage = "Exception occurred! " + e.getMessage();
+            System.out.println(exceptionMessage);
+            throw new RuntimeException(exceptionMessage);
+        }
+    }
+
+    private static <T> List<?> mapResponseBodyToListDTO(String body,
+                                                        Class<T> elementType) {
+        try {
+            System.out.println(Thread.currentThread().getName() + " map response to List DTO");
+            return objectMapper.readValue(body, objectMapper.getTypeFactory().constructCollectionType(List.class, elementType));
         } catch (Exception e) {
             String exceptionMessage = "Exception occurred! " + e.getMessage();
             System.out.println(exceptionMessage);
