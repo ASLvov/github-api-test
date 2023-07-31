@@ -33,10 +33,10 @@ public class Repository {
 
     @Override
     public String toString() {
-        return "Repository{" +
-                "name='" + name + '\'' +
-                ", url='" + url + '\'' +
-                ", contributors=" + contributors +
-                '}';
+        return "\n\t\tRepository{\n" +
+                "\t\t\tname='" + name + "',\n" +
+                "\t\t\turl='" + url + "',\n" +
+                "\t\t\tcontributors: " + contributors +
+                "\n\t\t}";
     }
 }

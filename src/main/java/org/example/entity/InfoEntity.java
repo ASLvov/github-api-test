@@ -42,10 +42,10 @@ public class InfoEntity {
 
     @Override
     public String toString() {
-        return "InfoEntity{" +
-                "login='" + login + '\'' +
-                ", email='" + email + '\'' +
-                ", repositoryList=" + repositoryList +
-                '}';
+        return "InfoEntity{\n" +
+                "\tlogin='" + login + "',\n" +
+                "\temail='" + email + "',\n" +
+                "\trepositoryList: " + repositoryList +
+                "\n}";
     }
 }

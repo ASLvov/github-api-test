@@ -11,6 +11,8 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -22,9 +24,11 @@ public class Main {
 
 
     public static void main(String[] args) {
-        String login = "pivotal";
+        String login = "apache";
         try {
+            Instant start = Instant.now();
             InfoEntity infoEntity = getInfoByLogin(login);
+            System.out.println("Duration - " + Duration.between(start, Instant.now()));
             System.out.println(infoEntity);
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -78,7 +82,7 @@ public class Main {
 
     private static <T> Object mapResponseBodyToDTO(String body, Class<T> elementType) {
         try {
-            System.out.println(Thread.currentThread().getName() + " map response to DTO");
+            System.out.println(Instant.now() + " - " + Thread.currentThread().getName() + " map response to DTO");
             return objectMapper.readValue(body, elementType);
         } catch (Exception e) {
             String exceptionMessage = "Exception occurred! " + e.getMessage();
@@ -90,7 +94,7 @@ public class Main {
     private static <T> List<?> mapResponseBodyToListDTO(String body,
                                                         Class<T> elementType) {
         try {
-            System.out.println(Thread.currentThread().getName() + " map response to List DTO");
+            System.out.println(Instant.now() + " - " + Thread.currentThread().getName() + " map response to List DTO");
             return objectMapper.readValue(body, objectMapper.getTypeFactory().constructCollectionType(List.class, elementType));
         } catch (Exception e) {
             String exceptionMessage = "Exception occurred! " + e.getMessage();
@@ -101,7 +105,7 @@ public class Main {
 
     private static CompletableFuture<HttpResponse<String>> sendGetRequestAsync(String stringUri) {
         try {
-            System.out.println(Thread.currentThread().getName() + " send request to " + stringUri);
+            System.out.println(Instant.now() + " - " + Thread.currentThread().getName() + " send request to " + stringUri);
             URI uri = new URI(stringUri);
             HttpRequest httpRequest = HttpRequest.newBuilder(uri)
                     .GET()
